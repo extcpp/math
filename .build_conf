@@ -1,0 +1,4 @@
+#!/bin/bash
+export cmake_var_tests="${cmake_var_tests:-"-DEXTMATH_TESTS=ON"}"
+export cmake_var_examples="${cmake_var_examples:-"-DEXTMATH_EXAMPLES=ON"}"
+echo "ext-math - project_root: $project_root"
