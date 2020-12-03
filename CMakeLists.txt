@@ -76,7 +76,7 @@ if(COMMAND ext_install)
         EXPORT ext-math-targets
 		FILE ext-math-config.cmake
         NAMESPACE ext::
-        DESTINATION ${CMAKE_INSTALL_PREFIX}
+        DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake
     )
 endif()
 
