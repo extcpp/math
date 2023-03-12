@@ -3,20 +3,18 @@
 #ifndef EXT_MATH_PRIMES_HEADER
 #define EXT_MATH_PRIMES_HEADER
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
 #include <limits>
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <iterator>
 
 #include <ext/macros/compiler.hpp>
 
 namespace ext { namespace math {
 
-template<typename T>
-std::vector<T> prime_factors_naive(T x, bool debug = false) {
+template<typename T, bool debug = false>
+std::vector<T> prime_factors_naive(T x) {
     std::vector<T> rv;
     // get rid of the half
     while (x % T(2) == 0) {
@@ -25,6 +23,7 @@ std::vector<T> prime_factors_naive(T x, bool debug = false) {
     }
     for (T i(3); i <= x; i += T(2)) {
         if (debug && i % T(1000001) == 0) {
+            // include debug where you use it
             std::cerr << "at: " << i << std::endl;
         }
         while (x % i == 0) {
@@ -35,47 +34,118 @@ std::vector<T> prime_factors_naive(T x, bool debug = false) {
     return rv;
 }
 
-//! struct that holds a Sieve of Eratosthenes
-struct sieve_of_eratosthenes {
-    std::vector<bool> sieve; //!< the sieve
-    std::size_t max_value;   //!< primes are calculated up to this number
-};
 
-//! Calculates the Sieve of Eratosthenes for all primes below a certain number
-/*  @param max_value maximum size of prime number
- *  @return pair of nth prime and corresponding index  or  0 on failure
- *
- *  Notes: Just works for size_t and is memory heavy for real stuff I need
- *  a quadratic sieve.
- */
-inline sieve_of_eratosthenes create_sieve_of_eratosthenes(std::size_t max_value) {
-    std::size_t sieve_size = max_value >> 1;
-
-    sieve_of_eratosthenes result;
-    result.sieve = std::vector<bool>(sieve_size, true);
-    result.max_value = max_value;
-
-    std::vector<bool>& sieve = result.sieve;
-
-    std::size_t current_pos = 1;
-    while (current_pos <= std::size_t(std::sqrt(sieve_size)) + 1) {
-        while (sieve[current_pos] == false && current_pos < sieve_size) {
-            ++current_pos;
-        }
-
-        std::size_t distance = current_pos * 2 + 1;
-        for (std::size_t i = current_pos + distance; i < sieve_size; i += distance) {
-            if (i >= sieve_size || i < current_pos) {
-                break;
-            }
-            sieve[i] = false;
-        }
-        ++current_pos;
-    }
-    return result;
+inline std::ptrdiff_t index_of_value(std::size_t target_value) {
+    return (target_value - 3 ) / 2;
 }
 
-#ifdef EXT_COMPILER_GCC
+inline std::size_t value_at_index(std::size_t index) {
+    return 2 * index + 3;
+}
+
+template<std::random_access_iterator Iter, std::integral N>
+requires std::integral<typename Iter::value_type>
+void mark_sieve(Iter begin, Iter end, N factor) {
+    using value_type = typename Iter::value_type;
+    *begin = value_type(0);
+    while (end - begin > factor) {
+        begin += factor;
+        *begin = value_type(0);
+    };
+}
+
+template<std::random_access_iterator T>
+requires std::is_integral_v<typename T::value_type> && std::is_unsigned_v<typename T::value_type>
+typename std::size_t sift(T begin, T end) {
+    using int_type = std::ptrdiff_t;
+    using value_type = typename T::value_type;
+
+    std::fill(begin, end, value_type(true));
+
+    int_type n = std::distance(begin, end);
+    int_type i(0), index_square(3), factor(3);
+
+    while (index_square < n) {
+        if (begin[i]) {
+            mark_sieve(begin + index_square, end, factor);
+        }
+
+        ++i;
+        index_square += factor;
+        factor += 2;
+        index_square += factor;
+    }
+
+    return n > 0 ? value_at_index(std::size_t(n-1)) : 2;
+}
+
+template<std::forward_iterator Iter, typename BackInserter>
+void read_out_sieve(Iter begin, Iter end, std::back_insert_iterator<BackInserter> back) {
+    using int_type = std::int64_t;
+    using value_type = typename BackInserter::value_type;
+
+    int_type i(0);
+    back = value_type(2);
+
+    while (begin < end) {
+        if(*begin) {
+            back = static_cast<value_type>(value_at_index(i));
+        }
+        ++i;
+        ++begin;
+    }
+}
+
+template<std::random_access_iterator Iter>
+requires std::is_integral_v<typename Iter::value_type> && std::is_unsigned_v<typename Iter::value_type>
+inline bool is_prime(std::size_t x, Iter begin, Iter end) {
+    if(begin ==end || x > value_at_index(std::distance(begin,end) -1 )) {
+        throw std::runtime_error("number not covered by range of sieve");
+    }
+
+    if (x < 2) { return false; }
+    if (x == 2) { return true; }
+    if (x % 2 == 0) { return false; }
+
+    return *(begin + index_of_value(x));
+}
+
+template<std::random_access_iterator Iter>
+requires std::is_integral_v<typename Iter::value_type> && std::is_unsigned_v<typename Iter::value_type>
+std::size_t find_nth_prime(std::size_t n, Iter begin, Iter end) {
+    if (n == 1) return 2;
+    std::size_t count = 1;
+    for (auto current = begin; current != end; ++current) {
+        if (*current) {
+            ++count;
+            if (count == n) {
+                return value_at_index(std::size_t(std::distance(begin, current)));
+            }
+        }
+    }
+    return 0;
+}
+
+
+template<std::random_access_iterator Iter>
+requires std::is_integral_v<typename Iter::value_type> && std::is_unsigned_v<typename Iter::value_type>
+std::size_t find_next_prime(std::size_t prime, Iter begin, Iter end) {
+    if( prime == 2) return 3;
+    std::size_t count = 0;
+    for (auto current = begin+index_of_value(prime); current != end; ++current) {
+        if (*current) {
+            if (++count == 2) {
+                return value_at_index(std::size_t(std::distance(begin, current)));
+            }
+
+        }
+
+    }
+    return 0;
+}
+
+
+#if defined(EXT_COMPILER_GCC) && false // disabled
 template<std::size_t N>
 struct sieve_of_eratosthenes_compile_time {
     std::array<bool, N> sieve; //!< the sieve
@@ -114,127 +184,5 @@ inline constexpr auto create_sieve_of_eratosthenes() -> sieve_of_eratosthenes_co
 }
 #endif // EXT_COMPILER_GCC
 
-//! struct that holds primes of maximal size_t size
-struct prime_number {
-    std::size_t value; //!< numeric value
-    std::size_t n;     //!< position the sequence of primes
-    std::size_t index; //!< index in the sieve where the number is found
-};
-
-bool is_prime(std::size_t n, const sieve_of_eratosthenes& sieve /*, bool use_exceptions = false*/) {
-    if(n > sieve.max_value) {
-        throw std::runtime_error("number not covered by range of sieve");
-    }
-
-    if (n < 2) { return false; }
-    if (n == 2) { return true; }
-    if (n % 2 == 0) { return false; }
-
-    auto index = n / 2;
-
-    if (sieve.sieve[index]) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-//! Calculates the Sieve of Eratosthenes for all primes below a certain number
-/*  @param n prime to find
- *  @param sieve returned by sieve_of_eratosthenes
- *  @param use_exceptions flag to signal failure by exception
- *  @return prime_number struct. result.n holds the nth prime or 0 on failure
- */
-inline prime_number find_nth_prime(std::size_t n, const sieve_of_eratosthenes& sieve, bool use_exceptions = false) {
-    prime_number result;
-    result.value = 0;
-    result.n = 0;
-    result.index = 0;
-    if (n == 1) {
-        result.value = 2;
-        result.n = 1;
-        return result;
-    }
-
-    // sieve: 1 3 5
-    // so we begin with index 1
-    std::size_t current = 1; // start with 2
-    std::size_t index = 1;   // continue with 3, 5, ...
-
-    while (true) {
-        std::size_t number = 2 * index + 1;
-
-        if (sieve.sieve[index]) {
-            ++current;
-            if (current == n) {
-                result.value = number;
-                result.index = index;
-                result.n = n;
-                return result;
-            }
-        }
-
-        if (number >= sieve.max_value) {
-            if (use_exceptions) {
-                throw std::logic_error("you do not search in the valid range");
-            }
-            return result;
-        }
-        index++;
-    }
-    return result;
-}
-
-//! Calculates the Sieve of Eratosthenes for all primes below a certain number
-/*  @param n prime to find
- *  @param primes above this number will not be calculated in the underlying
- * sieve
- *  @param use_exceptions flag to signal failure by exception
- *  @return prime_number struct. result.n holds the nth prime or 0 on failure
- */
-inline prime_number find_nth_prime(std::size_t n, std::size_t max_value, bool use_exceptions = false) {
-    if (n == 1) {
-        prime_number result;
-        result.value = 2;
-        result.n = 1;
-        result.index = 0;
-        return result;
-    }
-
-    sieve_of_eratosthenes sieve = ext::math::create_sieve_of_eratosthenes(max_value);
-    return find_nth_prime(n, sieve, use_exceptions);
-}
-
-//! Calculates the next prime
-/*  @param current_prime
- *  @param sieve returned by sieve_of_eratosthenes
- *  @param use_exceptions flag to signal failure by exception
- *  @return prime_number struct. result.n holds the nth prime or 0 on failure
- */
-inline prime_number&
-    find_next_prime(prime_number& current_prime, const sieve_of_eratosthenes& sieve, bool use_exceptions = false) {
-    std::size_t index = current_prime.index + 1;
-    current_prime.value = 0;
-
-    while (true) {
-        std::size_t number = 2 * index + 1;
-
-        if (sieve.sieve[index]) {
-            current_prime.n++;
-            current_prime.value = number;
-            current_prime.index = index;
-            return current_prime;
-        }
-
-        if (number >= sieve.max_value) {
-            if (use_exceptions) {
-                throw std::logic_error("you do not search in the valid range");
-            }
-            return current_prime;
-        }
-        index++;
-    }
-    return current_prime;
-}
 }}     // namespace ext::math
 #endif // EXT_MATH_PRIMES_HEADER
