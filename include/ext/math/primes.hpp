@@ -1,5 +1,4 @@
 // Copyright - 2015 - Jan Christoph Uhde <Jan@UhdeJC.com>
-// TODO enable_if for integral types
 #ifndef EXT_MATH_PRIMES_HEADER
 #define EXT_MATH_PRIMES_HEADER
 
@@ -8,12 +7,13 @@
 #include <utility>
 #include <vector>
 #include <iterator>
+#include <concepts>
 
 #include <ext/macros/compiler.hpp>
 
 namespace ext { namespace math {
 
-template<typename T, bool debug = false>
+template<std::integral T, bool debug = false>
 std::vector<T> prime_factors_naive(T x) {
     std::vector<T> rv;
     // get rid of the half
@@ -35,12 +35,12 @@ std::vector<T> prime_factors_naive(T x) {
 }
 
 
-inline std::ptrdiff_t index_of_value(std::size_t target_value) {
-    return (target_value - 3 ) / 2;
+inline std::ptrdiff_t sieve_index_of_value(std::size_t target_value) {
+    return (static_cast<std::ptrdiff_t>(target_value) - 3 ) / 2;
 }
 
-inline std::size_t value_at_index(std::size_t index) {
-    return 2 * index + 3;
+inline std::size_t sieve_value_at_index(std::ptrdiff_t index) {
+    return std::size_t(2 * index + 3);
 }
 
 template<std::random_access_iterator Iter, std::integral N>
@@ -76,12 +76,12 @@ typename std::size_t sift(T begin, T end) {
         index_square += factor;
     }
 
-    return n > 0 ? value_at_index(std::size_t(n-1)) : 2;
+    return n > 0 ? sieve_value_at_index(n-1) : 2;
 }
 
 template<std::forward_iterator Iter, typename BackInserter>
 void read_out_sieve(Iter begin, Iter end, std::back_insert_iterator<BackInserter> back) {
-    using int_type = std::int64_t;
+    using int_type = std::ptrdiff_t;
     using value_type = typename BackInserter::value_type;
 
     int_type i(0);
@@ -89,7 +89,7 @@ void read_out_sieve(Iter begin, Iter end, std::back_insert_iterator<BackInserter
 
     while (begin < end) {
         if(*begin) {
-            back = static_cast<value_type>(value_at_index(i));
+            back = static_cast<value_type>(sieve_value_at_index(i));
         }
         ++i;
         ++begin;
@@ -99,7 +99,7 @@ void read_out_sieve(Iter begin, Iter end, std::back_insert_iterator<BackInserter
 template<std::random_access_iterator Iter>
 requires std::is_integral_v<typename Iter::value_type> && std::is_unsigned_v<typename Iter::value_type>
 inline bool is_prime(std::size_t x, Iter begin, Iter end) {
-    if(begin ==end || x > value_at_index(std::distance(begin,end) -1 )) {
+    if(begin ==end || x > sieve_value_at_index(std::distance(begin,end) -1 )) {
         throw std::runtime_error("number not covered by range of sieve");
     }
 
@@ -107,7 +107,7 @@ inline bool is_prime(std::size_t x, Iter begin, Iter end) {
     if (x == 2) { return true; }
     if (x % 2 == 0) { return false; }
 
-    return *(begin + index_of_value(x));
+    return *(begin + sieve_index_of_value(x));
 }
 
 template<std::random_access_iterator Iter>
@@ -119,7 +119,7 @@ std::size_t find_nth_prime(std::size_t n, Iter begin, Iter end) {
         if (*current) {
             ++count;
             if (count == n) {
-                return value_at_index(std::size_t(std::distance(begin, current)));
+                return sieve_value_at_index(std::distance(begin, current));
             }
         }
     }
@@ -132,10 +132,10 @@ requires std::is_integral_v<typename Iter::value_type> && std::is_unsigned_v<typ
 std::size_t find_next_prime(std::size_t prime, Iter begin, Iter end) {
     if( prime == 2) return 3;
     std::size_t count = 0;
-    for (auto current = begin+index_of_value(prime); current != end; ++current) {
+    for (auto current = begin+sieve_index_of_value(prime); current != end; ++current) {
         if (*current) {
             if (++count == 2) {
-                return value_at_index(std::size_t(std::distance(begin, current)));
+                return sieve_value_at_index(std::distance(begin, current));
             }
 
         }

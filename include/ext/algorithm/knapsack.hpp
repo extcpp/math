@@ -73,6 +73,7 @@ inline std::vector<item<T>> zero_or_one_knapsack2(std::vector<item<T>> const& in
     // TODO - implement with bitfield matrix?
     ext::math::dynamic_matrix<std::uint8_t> matrix(input.size() + 1, max_weight + 1);
     matrix.init_all_to(0);
+    //EXT_ASSERT(0 <= max_weight);
 
     std::vector<std::size_t> max_for_weight(max_weight + 1);
     std::fill(max_for_weight.begin(), max_for_weight.end(), 0);
@@ -80,7 +81,8 @@ inline std::vector<item<T>> zero_or_one_knapsack2(std::vector<item<T>> const& in
     for (std::uint64_t i = 1; i < input.size() + 1; i++) {
         auto const& item = input[i - 1];
         for (std::size_t w = max_weight; w > 0; w--) {
-            EXT_ASSERT(0 <= w && w <= max_weight);
+            //EXT_ASSERT(0 <= w <= max_weight);
+            EXT_ASSERT(w <= max_weight);
 
             std::size_t s = 0;
             if (w >= item.weight) {
